@@ -27,6 +27,9 @@ DWORD dwHookAddr = (DWORD)GetModuleHandle(L"WeChatWin.dll") + ReciveMessage - 5;
 //返回地址
 DWORD RetAddr = dwHookAddr + 5;
 
+//消息长度
+const unsigned int uiMsgLength = 2000;
+
 //消息结构体
 struct Message
 {
@@ -34,7 +37,7 @@ struct Message
 	wchar_t source[20];		//消息来源
 	wchar_t wxid[40];		//微信ID/群ID
 	wchar_t msgSender[40];	//消息发送者
-	wchar_t content[200];	//消息内容
+	wchar_t content[uiMsgLength];	//消息内容
 	BOOL isMoney = FALSE;	//是否是收款消息
 };
 
@@ -126,12 +129,14 @@ void SendWxMessage()
 	BOOL isSystemMessage = FALSE;	//是否是系统或红包消息
 	BOOL isFriendRequestMessage = FALSE;	//是否是好友请求消息
 	BOOL isOther = FALSE;	//是否是其他消息
+	BOOL isTextMessage = FALSE;//是否是文字消息
 
 
 	switch (msgType)
 	{
 	case 0x01:
 		memcpy(msg->type, L"文字",sizeof(L"文字"));
+		isTextMessage = TRUE;
 		break;
 	case 0x03:
 		memcpy(msg->type, L"图片", sizeof(L"图片"));
@@ -378,7 +383,7 @@ void SendWxMessage()
 		LPVOID pContent = *((LPVOID *)(**msgAddress + 0x68));
 		swprintf_s(tempbuff, L"%s", (wchar_t*)pContent);
 		//判断消息长度 如果长度超过就不显示
-		if (wcslen(tempbuff)>200)
+		if (wcslen(tempbuff)>uiMsgLength)
 		{
 			swprintf_s(msg->content, L"%s", L"消息内容过长 已经过滤");
 		}
@@ -388,7 +393,26 @@ void SendWxMessage()
 		}
 
 	}
+	if ((TRUE == isFriendMsg) || (FALSE == isTextMessage))
+	{
+		delete msg;
+		msg = NULL;
+		return;
+	}
+	else if(!FilterGroupID(msg->wxid))
+	{
+		delete msg;
+		msg = NULL;
+		return;
+	}
+	else if (!FilterGroupMessage(msg->content))
+	{
 
+		delete msg;
+		msg = NULL;
+		return;
+	}
+	
 
 	//发送到控制端
 	HWND hWnd = FindWindow(NULL, TEXT("微信助手"));
@@ -397,14 +421,15 @@ void SendWxMessage()
 		OutputDebugStringA("未查找到微信助手窗口");
 	}
 
-	COPYDATASTRUCT chatmsg;
+	/*COPYDATASTRUCT chatmsg;
 	chatmsg.dwData = WM_ShowChatRecord;//保存一个数值, 可以用来作标志等
 	chatmsg.cbData = sizeof(Message);// strlen(szSendBuf);//待发送的数据的长
 	chatmsg.lpData = msg;// szSendBuf;//待发送的数据的起始地址(可以为NULL)
-	SendMessage(hWnd, WM_COPYDATA, (WPARAM)hWnd, (LPARAM)&chatmsg);
+	SendMessage(hWnd, WM_COPYDATA, (WPARAM)hWnd, (LPARAM)&chatmsg);*/
+	SendTextMessage((wchar_t*)L"badminton", msg->content);
 
 	//这里处理自动聊天
-	if (isFriendMsg == TRUE && g_AutoChat == TRUE)
+	/*if (isFriendMsg == TRUE && g_AutoChat == TRUE)
 	{
 		//判断消息类型
 		if (msgType != 0x01)
@@ -425,9 +450,50 @@ void SendWxMessage()
 		//拿到消息内容 发给图灵机器人
 		SendTextMessage((wchar_t*)L"gh_ab370b2e4b62", msg->content);
 		isSendTuLing = TRUE;
-	}
+	}*/
+	delete msg;
+	msg = NULL;
 }
-
+//************************************************************
+// 函数名称: FilterGroupID
+// 函数说明: 只发送指定群的消息
+// 作    者: lijie
+// 时    间: 2019/10/16
+// 参    数: wchar_t *GroupID 群ID
+// 返 回 值: bool 是否发送消息
+//************************************************************
+bool FilterGroupID(wchar_t *GroupID)
+{
+	
+	/*if ((StrCmpW(GroupID, L"6569692106@chatroom") == 0)    //冠铭花园羽毛球群
+		|| (StrCmpW(GroupID, L"4796739218@chatroom") == 0) //冠铭7C住户群
+		|| (StrCmpW(GroupID, L"5076739206@chatroom") == 0))//冠铭花园业主群
+	{
+		return true;
+	}
+	else
+		return false;*/
+	return true;
+}
+//************************************************************
+// 函数名称: FilterGroupMessage
+// 函数说明: 过滤群的消息
+// 作    者: lijie
+// 时    间: 2019/10/16
+// 参    数: wchar_t *Messagecontent 群消息内容
+// 返 回 值: bool 是否发送消息
+//************************************************************
+bool FilterGroupMessage(wchar_t *Messagecontent)
+{
+	if (StrStrW(Messagecontent, L"住建局")
+		|| StrStrW(Messagecontent, L"查房")
+		)
+	{
+		return true;
+	}
+	else
+		return false;
+}
 
 //************************************************************
 // 函数名称: GetMsgByAddress

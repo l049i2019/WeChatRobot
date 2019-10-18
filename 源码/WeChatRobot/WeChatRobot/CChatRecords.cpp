@@ -128,7 +128,7 @@ struct Message
 	wchar_t source[20];		//消息来源
 	wchar_t wxid[40];		//微信ID/群ID
 	wchar_t msgSender[40];	//消息发送者
-	wchar_t content[200];	//消息内容
+	wchar_t content[2000];	//消息内容
 	BOOL isMoney = FALSE;	//是否是收款消息
 };
 
@@ -204,7 +204,7 @@ afx_msg LRESULT CChatRecords::OnShowmessage(WPARAM wParam, LPARAM lParam)
 	m_ChatRecord.SetItemText(g_index, 1, msg->source);
 	m_ChatRecord.SetItemText(g_index, 2, msg->wxid);
 	m_ChatRecord.SetItemText(g_index, 3, msg->msgSender);
-	m_ChatRecord.SetItemText(g_index, 4, msg->content);
+	//m_ChatRecord.SetItemText(g_index, 4, msg->content);
 
 	if (msg->isMoney==TRUE)
 	{
